@@ -1,0 +1,6 @@
+<launch>
+  <node name="navigate_to_door" pkg="behavior_tree_leaves" type="navigate_to_door" output="screen" />
+  <node name="grasping" pkg="behavior_tree_leaves" type="grasping" output="screen" />
+  <node name="door_in_view" pkg="behavior_tree_leaves" type="door_in_view" output="screen" />
+  <node name="project_test" pkg="behavior_tree_core" type="project_test" />
+</launch>
