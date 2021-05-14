@@ -124,6 +124,13 @@ target_link_libraries(project_test
   ${PROJECT_NAME}
   ${GTEST_LIBRARIES})
 
+add_executable(go_spin_tree src/project/go_spin_tree.cpp)
+target_link_libraries(go_spin_tree
+  ${catkin_LIBRARIES}
+  ${PROJECT_NAME}
+  ${GTEST_LIBRARIES})
+  
+
 
 #add_executable(ros_test src/ros_test.cpp ${BTSrcLibrary} ${BTHeadLibrary})
 #target_link_libraries(ros_test ${catkin_LIBRARIES} ${OPENGL_LIBRARIES} ${GLUT_LIBRARY})

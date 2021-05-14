@@ -25,7 +25,7 @@ BT::ControlNode* tree;
 bool init = false;
 
 
-void * font_array[3] = {GLUT_BITMAP_8_BY_13, GLUT_BITMAP_8_BY_13, GLUT_BITMAP_8_BY_13};
+void * font_array[3] = {GLUT_BITMAP_TIMES_ROMAN_24, GLUT_BITMAP_8_BY_13, GLUT_BITMAP_8_BY_13};
 void * font = font_array[0];
 float additional_spacing_array[10];
 bool is_number_pressed_array[10];
@@ -460,14 +460,14 @@ void processSpecialKeys(int key, int xx, int yy)
         if (b_color > 0) b_color -=  fraction;
         break;
     case GLUT_KEY_HOME:
-        if (zoom < 1.0f)
+        if (zoom < 5.0f)
         {
             glScalef(1.0f + zoom_fraction, 1.0f + zoom_fraction, 1.0f);
             zoom += zoom_fraction;
         }
         else
         {
-            glScalef(1.0f, 1.0f, 1.0f);
+            glScalef(5.0f, 5.0f, 5.0f);
         }
         break;
     case GLUT_KEY_END:

@@ -22,10 +22,17 @@ class BTAction(object):
     self._as = actionlib.SimpleActionServer(self._action_name, behavior_tree_core.msg.BTAction, execute_cb=self.execute_cb, auto_start = False)
     self._as.start()
     self.pub = rospy.Publisher('cmd_vel', Twist, queue_size = 1)
+    self.go_msg = Twist()
+    self.go_msg.linear.x = 0.2
+    self.go_msg.linear.y = 0
+    self.go_msg.linear.z = 0
+    self.go_msg.angular.x = 0
+    self.go_msg.angular.y = 0
+    self.go_msg.angular.z = 0
     
   def execute_cb(self, goal):
     # helper variables
-    r = rospy.Rate(1)
+    r = rospy.Rate(25)
     success = True
     
 
@@ -34,16 +41,24 @@ class BTAction(object):
     rospy.loginfo('Starting Action')
     
     # start executing the action
-    while True:
+    while not rospy.is_shutdown():
       # check that preempt has not been requested by the client
       if self._as.is_preempt_requested():
+        stop = Twist()
+        stop.linear.x = 0
+        stop.linear.y = 0
+        stop.linear.z = 0
+        stop.angular.x = 0
+        stop.angular.y = 0
+        stop.angular.z = 0
+        self.pub.publish(stop)
         rospy.loginfo('Action Halted')
         self._as.set_preempted()
         success = False
         break
 
-      rospy.loginfo('Navigating to the door ... ... ')
-
+      rospy.loginfo('Go stright ... ... ')
+      self.pub.publish(self.go_msg)
       # this step is not necessary, the sequence is computed at 1 Hz for demonstration purposes
       r.sleep()
       
@@ -69,6 +84,6 @@ class BTAction(object):
 
 
 if __name__ == '__main__':
-  rospy.init_node('navigate_to_door')
+  rospy.init_node('go_stright')
   BTAction(rospy.get_name())
   rospy.spin()

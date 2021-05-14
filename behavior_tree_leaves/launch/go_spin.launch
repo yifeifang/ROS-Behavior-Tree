@@ -1,0 +1,6 @@
+<launch>
+  <node name="go_stright" pkg="behavior_tree_leaves" type="go_stright" output="screen" />
+  <node name="rotate" pkg="behavior_tree_leaves" type="rotate" output="screen" />
+  <node name="obstacle_encounter" pkg="behavior_tree_leaves" type="obstacle_encounter" output="screen" />
+  <node name="go_spin_tree" pkg="behavior_tree_core" type="go_spin_tree" />
+</launch>

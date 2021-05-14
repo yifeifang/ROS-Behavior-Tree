@@ -7,9 +7,9 @@ import actionlib
 
 import behavior_tree_core.msg
 
-from geometry_msgs.msg import Twist
+from random import randint
 
-
+from sensor_msgs.msg import LaserScan
 
 
 class BTAction(object):
@@ -21,34 +21,26 @@ class BTAction(object):
     self._action_name = name
     self._as = actionlib.SimpleActionServer(self._action_name, behavior_tree_core.msg.BTAction, execute_cb=self.execute_cb, auto_start = False)
     self._as.start()
-    self.pub = rospy.Publisher('cmd_vel', Twist, queue_size = 1)
+    self.counter = 0
+    self.sub = rospy.Subscriber("base_scan", LaserScan, self.update_obstacle)
+    self.current_distance = 0
     
-  def execute_cb(self, goal):
-    # helper variables
-    r = rospy.Rate(1)
-    success = True
-    
+  def update_obstacle(self, data):
+    self.current_distance = data.ranges[330]
 
+  def execute_cb(self, goal):
     
     # publish info to the console for the user
-    rospy.loginfo('Starting Action')
+    rospy.loginfo('Checking Condition Door in view')
     
-    # start executing the action
-    while True:
-      # check that preempt has not been requested by the client
-      if self._as.is_preempt_requested():
-        rospy.loginfo('Action Halted')
-        self._as.set_preempted()
-        success = False
-        break
-
-      rospy.loginfo('Navigating to the door ... ... ')
-
-      # this step is not necessary, the sequence is computed at 1 Hz for demonstration purposes
-      r.sleep()
-      
-    if success:
+    if self.current_distance < 1.2:
+      rospy.loginfo('Obstacle encountered')
       self.set_status('SUCCESS')
+    else:
+      rospy.loginfo('Route clear')
+      self.set_status('FAILURE')
+
+    self.counter += 1
 
     
 
@@ -69,6 +61,6 @@ class BTAction(object):
 
 
 if __name__ == '__main__':
-  rospy.init_node('navigate_to_door')
+  rospy.init_node('obstacle_encounter')
   BTAction(rospy.get_name())
   rospy.spin()
