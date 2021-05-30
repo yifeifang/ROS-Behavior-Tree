@@ -22,22 +22,13 @@ class BTAction(object):
     self._as = actionlib.SimpleActionServer(self._action_name, behavior_tree_core.msg.BTAction, execute_cb=self.execute_cb, auto_start = False)
     self._as.start()
     self.counter = 0
-    self.sub = rospy.Subscriber("base_scan", LaserScan, self.update_obstacle)
-    self.current_distance = 0
-    
-  def update_obstacle(self, data):
-    self.current_distance = data.ranges[330]
 
   def execute_cb(self, goal):
-    
-    # publish info to the console for the user
-    rospy.loginfo('Checking obstacle in view')
-    
-    if self.current_distance < 2:
-      rospy.loginfo('Obstacle encountered')
+    if randint(1,100) > 10 or self.counter < 10:
+      rospy.loginfo('SUCCESS')
       self.set_status('SUCCESS')
     else:
-      rospy.loginfo('Route clear')
+      rospy.loginfo('FAILURE')
       self.set_status('FAILURE')
 
     self.counter += 1
@@ -61,6 +52,6 @@ class BTAction(object):
 
 
 if __name__ == '__main__':
-  rospy.init_node('obstacle_encounter')
+  rospy.init_node('fake_condition')
   BTAction(rospy.get_name())
   rospy.spin()

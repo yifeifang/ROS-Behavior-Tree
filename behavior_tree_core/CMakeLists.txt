@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   roslaunch
   genmsg
+  robotics_labs
 )
 
 
@@ -124,12 +125,23 @@ target_link_libraries(project_test
   ${PROJECT_NAME}
   ${GTEST_LIBRARIES})
 
+add_executable(project_tree src/project/project_tree.cpp)
+target_link_libraries(project_tree
+  ${catkin_LIBRARIES}
+  ${PROJECT_NAME}
+  ${GTEST_LIBRARIES})
+
 add_executable(go_spin_tree src/project/go_spin_tree.cpp)
 target_link_libraries(go_spin_tree
   ${catkin_LIBRARIES}
   ${PROJECT_NAME}
   ${GTEST_LIBRARIES})
   
+  add_executable(fake_tree src/project/fake_tree.cpp)
+  target_link_libraries(fake_tree
+    ${catkin_LIBRARIES}
+    ${PROJECT_NAME}
+    ${GTEST_LIBRARIES})
 
 
 #add_executable(ros_test src/ros_test.cpp ${BTSrcLibrary} ${BTHeadLibrary})

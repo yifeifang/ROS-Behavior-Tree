@@ -1,0 +1,7 @@
+<launch>
+  <node name="fake_condition" pkg="behavior_tree_leaves" type="fake_condition" output="screen" />
+  <node name="nav_phy" pkg="behavior_tree_leaves" type="nav_phy" output="screen" />
+  <node name="moveit_final" pkg="behavior_tree_leaves" type="moveit_final" output="screen" />
+  <node name="idle" pkg="behavior_tree_leaves" type="idle" output="screen" />
+  <node name="project_tree" pkg="behavior_tree_core" type="project_tree" />
+</launch>

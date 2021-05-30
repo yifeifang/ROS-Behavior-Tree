@@ -1,0 +1,224 @@
+#! /usr/bin/env python
+
+
+import rospy
+
+import actionlib
+
+import behavior_tree_core.msg
+
+from geometry_msgs.msg import Twist
+
+import rospy
+# ROS Image message
+from sensor_msgs.msg import Image
+# ROS Image message -> OpenCV2 image converter
+from cv_bridge import CvBridge, CvBridgeError
+
+# from tf_listener import get_transformation, transform_point
+# OpenCV2 for saving an image
+
+import cv2
+
+import numpy as np
+
+import math
+
+import actionlib
+
+import fetch_api
+
+import control_msgs.msg
+
+from sensor_msgs.msg import PointCloud2
+
+import trajectory_msgs.msg
+
+import struct
+
+from geometry_msgs.msg import Point, PointStamped, PoseStamped
+
+from robotics_labs.msg import BoxTarget
+
+import tf2_ros
+import tf2_geometry_msgs
+
+
+class BTAction(object):
+  # create messages that are used to publish feedback/result
+  _feedback = behavior_tree_core.msg.BTFeedback()
+  _result   = behavior_tree_core.msg.BTResult()
+
+  def __init__(self, name):
+    self._action_name = name
+    self._as = actionlib.SimpleActionServer(self._action_name, behavior_tree_core.msg.BTAction, execute_cb=self.execute_cb, auto_start = False)
+    self._as.start()
+    self.MIN_PAN = -math.pi / 2
+    self.MAX_PAN = math.pi / 2
+    self.MIN_TILT = -math.pi / 2
+    self.MAX_TILT = math.pi / 4
+    self.PAN_JOINT = 'head_pan_joint'
+    self.TILT_JOINT = 'head_tilt_joint'
+    self.PAN_TILT_TIME = 2
+
+    # Instantiate CvBridge
+    self.bridge = CvBridge()
+    self.initBB = None
+    self.tracker = cv2.TrackerCSRT_create()
+    self.fetch_base = fetch_api.Base()
+    self.linear_speed = 0.1
+    self.angular_speed = 0
+    self.porpotion_prev = 0  # assuming fetch is facing the object
+    self.porpotion_tilt_prev = 0
+    self.intergral_tilt = 0
+    self.traj_client = None
+    self.current_dist = 0
+    self.cx = None
+    self.cy = None
+    self.image_sub = None
+    self.dist_sub = None
+    self.tilt = 0
+    self.tf_buffer = None
+    self.stop = False
+
+    self.flush_counter = 5
+
+    self.tf_buffer = tf2_ros.Buffer(rospy.Duration(1))
+    tf2_ros.TransformListener(self.tf_buffer)
+    self.traj_client = actionlib.SimpleActionClient('head_controller/follow_joint_trajectory', control_msgs.msg.FollowJointTrajectoryAction)
+    # Define your image topic
+    self.image_topic = "/head_camera/rgb/image_raw"
+    
+
+  def dist_callback(self, msg):
+    transform = self.tf_buffer.lookup_transform("base_link",
+                                            "head_camera_rgb_optical_frame", #source frame
+                                            rospy.Time(0),
+                                            rospy.Duration(5.0)) #get the tf at first available time
+    pose_goal = PoseStamped()
+    pose_goal.header.frame_id = "head_camera_rgb_optical_frame"
+    pose_goal.pose = msg.box_pose
+    pose_transformed = tf2_geometry_msgs.do_transform_pose(pose_goal, transform)
+
+    self.current_dist = pose_transformed.pose.position.x
+
+    if (not math.isnan(self.current_dist)) and self.current_dist < 0.82 and self.current_dist != 0:
+        # print "stop is set now"
+        self.stop = True
+
+    print "current_dist = ", self.current_dist
+
+  def image_callback(self, msg):
+    # print "Received an image!"
+    # if (not math.isnan(current_dist)) and current_dist < 0.85 and current_dist != 0:
+    #     fetch_base.move(0, 0)
+    #     image_sub.unregister()
+    if self.flush_counter > 0:
+      print "flushing"
+      self.flush_counter-= 1
+      return
+    try:
+        # Convert your ROS Image message to OpenCV2
+        cv2_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+    except CvBridgeError, e:
+        print(e)
+    else:
+        # Save your OpenCV2 image as a jpeg 
+        # pass
+        # Change image to grayscale
+        height = cv2_img.shape[0]
+        width = cv2_img.shape[1]
+        if not self.initBB:
+            self.initBB = cv2.selectROI("Frame", cv2_img, fromCenter=False, showCrosshair=True)
+            cv2.destroyWindow("Frame")
+            self.tracker.init(cv2_img, self.initBB)
+        else:
+            (success, box) = self.tracker.update(cv2_img)
+            (x, y, w, h) = [int(v) for v in box]
+            cv2.rectangle(cv2_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+            self.cx = x + w / (2 * 1.0)
+            self.cy = y + h / (2 * 1.0)
+
+            precentage = self.cx / (width * 1.0) 
+            precentage_height = self.cy / (height * 1.0) 
+            
+            porpotion = -(precentage - 0.5)
+            differential = porpotion - self.porpotion_prev
+
+            porpotion_tilt = (precentage_height - 0.5)
+            differential_tilt = porpotion_tilt - porpotion_tilt
+            self.intergral_tilt += (precentage_height - 0.5)
+
+            self.angular_speed = porpotion + 0.001 * differential
+            self.tilt = 5 * porpotion_tilt + 0.001 * differential_tilt + 0.001 * self.intergral_tilt
+            # print porpotion_tilt, differential_tilt, tilt
+            self.porpotion_prev = porpotion
+            self.porpotion_tilt_prev = porpotion_tilt
+            # Displaying the image 
+            self.fetch_base.move(self.linear_speed, self.angular_speed)
+
+            point = trajectory_msgs.msg.JointTrajectoryPoint()
+            point.positions = [0, self.tilt]
+            point.time_from_start = rospy.Duration(self.PAN_TILT_TIME)
+            goal = control_msgs.msg.FollowJointTrajectoryGoal()
+
+            goal.trajectory.joint_names = [self.PAN_JOINT, self.TILT_JOINT]
+            goal.trajectory.points.append(point)
+            self.traj_client.send_goal(goal)
+            # cv2.imshow("Result",cv2_img)
+            # cv2.waitKey(1)
+
+  def execute_cb(self, goal):
+    # helper variables
+    r = rospy.Rate(25)
+    success = False
+    
+    # publish info to the console for the user
+    rospy.loginfo('Starting Action')
+    # Set up your subscriber and define its callback
+    self.image_sub = rospy.Subscriber("/head_camera/rgb/image_raw", Image, self.image_callback)
+    self.dist_sub = rospy.Subscriber("box_target", BoxTarget, self.dist_callback)
+    # start executing the action
+    while not rospy.is_shutdown():
+      # check that preempt has not been requested by the client
+      if self._as.is_preempt_requested():
+        self.image_sub.unregister()
+        self.dist_sub.unregister()
+        self.flush_counter = 5
+        rospy.loginfo('Action Halted')
+        self._as.set_preempted()
+        success = False
+        break
+
+      # print "check stop"
+      if self.stop:
+        self.image_sub.unregister()
+        self.dist_sub.unregister()
+        success = True
+        break
+      r.sleep()
+
+    if success:
+      self.set_status("SUCCESS")
+
+  def set_status(self,status):
+      if status == 'SUCCESS':
+        self._feedback.status = 1
+        self._result.status = self._feedback.status
+        rospy.loginfo('Action %s: Succeeded' % self._action_name)
+        self._as.set_succeeded(self._result)
+      elif status == 'FAILURE':
+        self._feedback.status = 2
+        self._result.status = self._feedback.status
+        rospy.loginfo('Action %s: Failed' % self._action_name)
+        self._as.set_succeeded(self._result)
+      else:
+        rospy.logerr('Action %s: has a wrong return status' % self._action_name)
+
+
+
+if __name__ == '__main__':
+  rospy.init_node('nav_phy')
+  BTAction(rospy.get_name())
+  rospy.spin()
